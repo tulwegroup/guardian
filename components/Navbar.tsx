@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, MessageCircle, ChevronDown, ChevronRight } from 'lucide-react';
@@ -70,7 +72,7 @@ const Navbar: React.FC<NavbarProps> = ({ logoUrl }) => {
         </Link>
 
         {/* Desktop Menu */}
-        <div className="hidden lg:flex items-center space-x-6">
+        <div className="hidden lg:flex items-center space-x-3 xl:space-x-6">
           {NAV_ITEMS.map((item) => (
             <div key={item.path} className="relative group">
               {item.subItems ? (
@@ -130,7 +132,7 @@ const Navbar: React.FC<NavbarProps> = ({ logoUrl }) => {
             href={`https://wa.me/${CONTACT_INFO.phone.replace(/[^0-9]/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-gold-500 hover:bg-gold-600 text-white px-5 py-2 rounded-sm transition-all shadow-lg hover:shadow-gold-500/20"
+            className="flex items-center gap-2 bg-gold-500 hover:bg-gold-600 text-white px-4 py-2 rounded-sm transition-all shadow-lg hover:shadow-gold-500/20 mr-2"
           >
             <MessageCircle size={16} />
             <span className="text-sm font-medium">WhatsApp</span>
