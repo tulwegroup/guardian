@@ -1,10 +1,6 @@
 
-
-
-
-
 import React, { useState, useEffect } from 'react';
-import { Lock, Upload, Wrench, LayoutGrid, Users, FileText, MapPin, UserPlus, Download, LogOut, Loader2, DollarSign, FileCheck, ShieldAlert, ArrowRight, RefreshCw, Mail } from 'lucide-react';
+import { Lock, Upload, Wrench, LayoutGrid, Users, FileText, MapPin, UserPlus, Download, LogOut, Loader2, DollarSign, FileCheck, ShieldAlert, ArrowRight, RefreshCw, Mail, Pencil, X } from 'lucide-react';
 import { Property, Agent, Community, Lead } from '../types';
 import { getSupabase } from '../lib/supabase';
 import { INITIAL_PROPERTIES, INITIAL_AGENTS, ALNAIR_PROJECTS, COMMUNITY_STRUCTURE } from '../constants';
@@ -91,7 +87,7 @@ ALTER TABLE leads DISABLE ROW LEVEL SECURITY;
 ALTER TABLE site_settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_posts DISABLE ROW LEVEL SECURITY;
 
--- Add Columns
+-- Add Columns (Safe Checks)
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS agent_id text;
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS lat numeric;
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS lng numeric;
@@ -179,8 +175,11 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
   const [selectedRegion, setSelectedRegion] = useState('');
   const [imagePreview, setImagePreview] = useState('');
 
+  // Agent Form (Create / Edit)
   const [agentForm, setAgentForm] = useState<Partial<Agent>>({ name: '', email: '', phone: '', whatsapp: '', role: 'agent', password: '' });
   const [agentPhotoPreview, setAgentPhotoPreview] = useState('');
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+
   const [commForm, setCommForm] = useState<Partial<Community>>({ title: '', description: '' });
   const [commImagePreview, setCommImagePreview] = useState('');
 
@@ -438,35 +437,54 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
         assignedAgentId = propForm.listingAgentId;
     }
 
-    const newProperty: any = {
+    // Explicitly construct payload to prevent 'Column not found' errors
+    // Do NOT spread ...propForm directly, as it contains camelCase keys that don't exist in DB
+    const newPropertyPayload = {
         id: Date.now().toString(),
-        ...propForm,
+        title: propForm.title,
+        price: propForm.price,
+        location: propForm.location,
+        lat: propForm.lat,
+        lng: propForm.lng,
+        type: propForm.type,
         beds: finalBeds,
         baths: finalBaths,
+        sqft: propForm.sqft,
         image_url: imagePreview || 'https://images.unsplash.com/photo-1600596542815-e328701102b9',
-        agent_id: assignedAgentId, // CRITICAL: Tag property with this agent
+        description: propForm.description,
+        is_featured: propForm.isFeatured,
+        agent_id: assignedAgentId,
         
         project_name: propForm.projectName,
+        developer: propForm.developer,
+        currency: propForm.currency,
         original_price: propForm.originalPrice,
         is_distress: propForm.isDistress,
+        status: propForm.status,
         property_type: propForm.propertyType,
         size_sqm: propForm.sizeSqm,
+        
         bed_type: propForm.bedType,
         bath_type: propForm.bathType,
         study_room: propForm.studyRoom,
+        
         rental_freq: propForm.rentalFreq,
         cheques: propForm.cheques,
+        
         reference_id: propForm.referenceId,
         noc_status: propForm.nocStatus,
         noc_start_date: propForm.nocStartDate,
         noc_end_date: propForm.nocEndDate,
-        listing_agent_id: assignedAgentId, // Keep strictly in sync
-        is_featured: propForm.isFeatured
+        listing_agent_id: assignedAgentId
     };
 
     if (supabase && dbStatus === 'connected') {
-        const { error } = await supabase.from('properties').insert(newProperty);
-        if (error) { alert(`DB Error: ${error.message}`); setIsSubmitting(false); return; }
+        const { error } = await supabase.from('properties').insert(newPropertyPayload);
+        if (error) { 
+            alert(`DB Error: ${error.message}`); 
+            setIsSubmitting(false); 
+            return; 
+        }
         else window.dispatchEvent(new Event('supabase-config-updated'));
     }
 
@@ -475,14 +493,56 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
     setTimeout(() => setIsSuccess(false), 3000);
   };
 
+  const handleEditAgent = (agent: Agent) => {
+    setEditingAgentId(agent.id);
+    setAgentForm({
+        name: agent.name,
+        email: agent.email,
+        phone: agent.phone,
+        whatsapp: agent.whatsapp,
+        password: agent.password,
+        role: agent.role
+    });
+    setAgentPhotoPreview(agent.photoUrl);
+  };
+
+  const cancelEditAgent = () => {
+    setEditingAgentId(null);
+    setAgentForm({ name: '', email: '', phone: '', whatsapp: '', role: 'agent', password: '' });
+    setAgentPhotoPreview('');
+  };
+
   const handleAgentSubmit = async (e: React.FormEvent) => {
       e.preventDefault(); setIsSubmitting(true);
       const supabase = getSupabase();
       if (!supabase) return;
-      const { error } = await supabase.from('agents').insert({
-          id: Date.now().toString(), ...agentForm, photo_url: agentPhotoPreview || 'https://images.unsplash.com/photo-1560250097-0b93528c311a'
-      });
-      if (!error) { alert("Agent Created!"); fetchAdminData(); } else alert(error.message);
+
+      const payload = {
+          ...agentForm,
+          photo_url: agentPhotoPreview || 'https://images.unsplash.com/photo-1560250097-0b93528c311a'
+      };
+
+      let error;
+      if (editingAgentId) {
+          // Update Mode
+          const { error: err } = await supabase.from('agents').update(payload).eq('id', editingAgentId);
+          error = err;
+      } else {
+          // Create Mode
+          const { error: err } = await supabase.from('agents').insert({
+              id: Date.now().toString(),
+              ...payload
+          });
+          error = err;
+      }
+
+      if (!error) { 
+          alert(editingAgentId ? "Agent Updated!" : "Agent Created!"); 
+          fetchAdminData(); 
+          cancelEditAgent();
+      } else {
+          alert(error.message);
+      }
       setIsSubmitting(false);
   };
 
@@ -521,6 +581,10 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
              <button onClick={() => setIsRegistering(false)} className={`flex-1 pb-2 text-sm font-bold ${!isRegistering ? 'border-b-2 border-slate-900 text-slate-900' : 'text-gray-400'}`}>LOGIN</button>
              <button onClick={() => setIsRegistering(true)} className={`flex-1 pb-2 text-sm font-bold ${isRegistering ? 'border-b-2 border-slate-900 text-slate-900' : 'text-gray-400'}`}>SIGN UP</button>
           </div>
+          
+          <div className="mb-4 text-center p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-100">
+             Admin Login: hello@guardianhousing.ae / guardian2024
+          </div>
 
           {authError && <div className="bg-red-50 text-red-600 text-sm p-3 rounded mb-4 border border-red-100">{authError}</div>}
 
@@ -537,7 +601,6 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="Email" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
                <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="Password" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
                <button type="submit" className="w-full bg-slate-900 text-white py-3 rounded-sm hover:bg-gold-500 uppercase tracking-wider font-bold">Login</button>
-               <div className="bg-blue-50 p-3 rounded text-xs text-blue-800 text-center mt-4"><p>Admin: hello@guardianhousing.ae / guardian2024</p></div>
              </form>
           )}
         </div>
@@ -741,38 +804,52 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
         {/* AGENTS TAB */}
         {activeTab === 'agents' && (
            <div className="bg-white p-8 rounded shadow-sm">
-               {/* ... (Existing Agent UI) ... */}
                <div className="flex justify-between items-center mb-6">
                  <h2 className="text-lg font-bold">Manage Agents</h2>
                  <button onClick={fetchAdminData} className="text-gold-500"><RefreshCw size={16}/></button>
                </div>
+               
+               {/* AGENT FORM (Create or Edit) */}
                {currentAgent.role === 'admin' && (
-                  <form onSubmit={handleAgentSubmit} className="mb-8 p-6 bg-blue-50 border border-blue-100 rounded">
-                      <h3 className="text-sm font-bold text-blue-900 mb-4 flex items-center gap-2"><UserPlus size={16}/> Create New Agent Profile</h3>
+                  <form onSubmit={handleAgentSubmit} className={`mb-8 p-6 border rounded ${editingAgentId ? 'bg-orange-50 border-orange-100' : 'bg-blue-50 border-blue-100'}`}>
+                      <h3 className={`text-sm font-bold mb-4 flex items-center gap-2 ${editingAgentId ? 'text-orange-900' : 'text-blue-900'}`}>
+                          {editingAgentId ? <><Pencil size={16}/> Edit Agent Profile</> : <><UserPlus size={16}/> Create New Agent Profile</>}
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <input required type="text" placeholder="Full Name" value={agentForm.name} onChange={e=>setAgentForm({...agentForm, name: e.target.value})} className="border p-2 rounded" />
-                          <input required type="email" placeholder="Email (Login)" value={agentForm.email} onChange={e=>setAgentForm({...agentForm, email: e.target.value})} className="border p-2 rounded" />
-                          <input required type="tel" placeholder="Phone" value={agentForm.phone} onChange={e=>setAgentForm({...agentForm, phone: e.target.value})} className="border p-2 rounded" />
-                          <input required type="tel" placeholder="WhatsApp (No spaces)" value={agentForm.whatsapp} onChange={e=>setAgentForm({...agentForm, whatsapp: e.target.value})} className="border p-2 rounded" />
-                          <input required type="password" placeholder="Password" value={agentForm.password} onChange={e=>setAgentForm({...agentForm, password: e.target.value})} className="border p-2 rounded" />
+                          <input required type="text" placeholder="Full Name" value={agentForm.name} onChange={e=>setAgentForm({...agentForm, name: e.target.value})} className="border p-2 rounded bg-white" />
+                          <input required type="email" placeholder="Email (Login)" value={agentForm.email} onChange={e=>setAgentForm({...agentForm, email: e.target.value})} className="border p-2 rounded bg-white" />
+                          <input required type="tel" placeholder="Phone" value={agentForm.phone} onChange={e=>setAgentForm({...agentForm, phone: e.target.value})} className="border p-2 rounded bg-white" />
+                          <input required type="tel" placeholder="WhatsApp (No spaces)" value={agentForm.whatsapp} onChange={e=>setAgentForm({...agentForm, whatsapp: e.target.value})} className="border p-2 rounded bg-white" />
+                          <input required type="password" placeholder="Password" value={agentForm.password} onChange={e=>setAgentForm({...agentForm, password: e.target.value})} className="border p-2 rounded bg-white" />
                           <div className="flex gap-2">
-                              <input type="text" placeholder="Photo URL" value={agentPhotoPreview} onChange={e=>setAgentPhotoPreview(e.target.value)} className="flex-grow border p-2 rounded" />
+                              <input type="text" placeholder="Photo URL" value={agentPhotoPreview} onChange={e=>setAgentPhotoPreview(e.target.value)} className="flex-grow border p-2 rounded bg-white" />
                               <label className="bg-white border px-3 py-2 rounded cursor-pointer hover:bg-gray-100"><Upload size={16}/><input type="file" className="hidden" onChange={(e)=>{if(e.target.files?.[0]) { const r = new FileReader(); r.onload=()=>setAgentPhotoPreview(r.result as string); r.readAsDataURL(e.target.files[0]); }}}/></label>
                           </div>
                       </div>
-                      <div className="mt-4 flex justify-end">
-                          <button type="submit" disabled={isSubmitting} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">{isSubmitting ? 'Creating...' : 'Create Agent'}</button>
+                      <div className="mt-4 flex justify-end gap-2">
+                          {editingAgentId && <button type="button" onClick={cancelEditAgent} className="text-gray-600 hover:text-gray-900 px-4 py-2 text-sm flex items-center gap-1"><X size={14}/> Cancel</button>}
+                          <button type="submit" disabled={isSubmitting} className={`text-white px-4 py-2 rounded text-sm ${editingAgentId ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                              {isSubmitting ? 'Saving...' : (editingAgentId ? 'Update Agent' : 'Create Agent')}
+                          </button>
                       </div>
                   </form>
                )}
+
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {agents.map(agent => (
-                      <div key={agent.id} className="border p-4 rounded flex items-center gap-4 bg-white shadow-sm">
-                          <img src={agent.photoUrl} className="w-16 h-16 rounded-full object-cover border border-gray-200" alt={agent.name}/>
-                          <div>
-                              <p className="font-bold text-slate-900">{agent.name}</p>
-                              <p className="text-xs text-gray-500">{agent.email}</p>
+                      <div key={agent.id} className="border p-4 rounded flex items-center justify-between bg-white shadow-sm group">
+                          <div className="flex items-center gap-4">
+                              <img src={agent.photoUrl} className="w-16 h-16 rounded-full object-cover border border-gray-200" alt={agent.name}/>
+                              <div>
+                                  <p className="font-bold text-slate-900">{agent.name}</p>
+                                  <p className="text-xs text-gray-500">{agent.email}</p>
+                              </div>
                           </div>
+                          {currentAgent.role === 'admin' && (
+                              <button onClick={() => handleEditAgent(agent)} className="text-gray-400 hover:text-orange-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Agent">
+                                  <Pencil size={16} />
+                              </button>
+                          )}
                       </div>
                   ))}
                </div>
