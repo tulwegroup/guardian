@@ -133,17 +133,10 @@ const LocationPicker = ({ lat, lng, onLocationSelect }: { lat: number, lng: numb
 const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo, currentLogoUrl }) => {
   // Auth & Session
   const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
   
   // Login State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
-  
-  // Register State
-  const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regPass, setRegPass] = useState('');
   
   const [authError, setAuthError] = useState('');
   
@@ -175,7 +168,7 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
   const [selectedRegion, setSelectedRegion] = useState('');
   const [imagePreview, setImagePreview] = useState('');
 
-  // Agent Form (Create / Edit)
+  // Agent Form (Create / Edit) - Used internally by Admins
   const [agentForm, setAgentForm] = useState<Partial<Agent>>({ name: '', email: '', phone: '', whatsapp: '', role: 'agent', password: '' });
   const [agentPhotoPreview, setAgentPhotoPreview] = useState('');
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
@@ -322,50 +315,6 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
         } else {
             setAuthError('Invalid credentials.');
         }
-    }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-    const supabase = getSupabase();
-    if (!supabase) return;
-
-    // Map application Agent interface to database columns (snake_case)
-    const { data: existing } = await supabase.from('agents').select('*').eq('email', regEmail).single();
-    if (existing) {
-        setAuthError('Account already exists with this email.');
-        return;
-    }
-
-    const dbAgent = {
-        id: Date.now().toString(),
-        name: regName,
-        email: regEmail,
-        phone: regPhone,
-        whatsapp: regPhone,
-        password: regPass,
-        role: 'agent',
-        photo_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a'
-    };
-
-    const { error } = await supabase.from('agents').insert(dbAgent);
-    if (error) {
-        setAuthError(error.message);
-    } else {
-        alert("Account Created! You are now logged in.");
-        const localAgent: Agent = {
-            id: dbAgent.id,
-            name: dbAgent.name,
-            email: dbAgent.email,
-            phone: dbAgent.phone,
-            whatsapp: dbAgent.whatsapp,
-            role: 'agent',
-            photoUrl: dbAgent.photo_url,
-            password: dbAgent.password
-        };
-        setCurrentAgent(localAgent);
-        localStorage.setItem('guardian_admin_session', JSON.stringify(localAgent));
     }
   };
 
@@ -575,34 +524,21 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 pt-20">
         <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full border border-gray-100">
-          <div className="text-center mb-8"><div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"><Lock className="text-gold-400" size={32} /></div><h1 className="text-2xl font-serif text-slate-900 font-bold">Agent Portal</h1></div>
-          
-          <div className="flex border-b mb-6">
-             <button onClick={() => setIsRegistering(false)} className={`flex-1 pb-2 text-sm font-bold ${!isRegistering ? 'border-b-2 border-slate-900 text-slate-900' : 'text-gray-400'}`}>LOGIN</button>
-             <button onClick={() => setIsRegistering(true)} className={`flex-1 pb-2 text-sm font-bold ${isRegistering ? 'border-b-2 border-slate-900 text-slate-900' : 'text-gray-400'}`}>SIGN UP</button>
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Lock className="text-gold-400" size={32} />
+            </div>
+            <h1 className="text-2xl font-serif text-slate-900 font-bold">Agent Portal</h1>
+            <p className="text-gray-500 text-sm mt-2">Please log in to access the dashboard.</p>
           </div>
           
-          <div className="mb-4 text-center p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-100">
-             Admin Login: hello@guardianhousing.ae / guardian2024
-          </div>
-
           {authError && <div className="bg-red-50 text-red-600 text-sm p-3 rounded mb-4 border border-red-100">{authError}</div>}
 
-          {isRegistering ? (
-             <form onSubmit={handleSignup} className="space-y-4">
-               <input required type="text" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Full Name" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
-               <input required type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="Email Address" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
-               <input required type="tel" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} placeholder="Phone Number" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
-               <input required type="password" value={regPass} onChange={(e) => setRegPass(e.target.value)} placeholder="Create Password" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
-               <button type="submit" className="w-full bg-slate-900 text-white py-3 rounded-sm hover:bg-gold-500 uppercase tracking-wider font-bold">Create Account</button>
-             </form>
-          ) : (
-             <form onSubmit={handleLogin} className="space-y-4">
-               <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="Email" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
-               <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="Password" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
-               <button type="submit" className="w-full bg-slate-900 text-white py-3 rounded-sm hover:bg-gold-500 uppercase tracking-wider font-bold">Login</button>
-             </form>
-          )}
+          <form onSubmit={handleLogin} className="space-y-4">
+             <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="Email" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
+             <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="Password" className="w-full px-4 py-3 border border-gray-300 rounded-sm" />
+             <button type="submit" className="w-full bg-slate-900 text-white py-3 rounded-sm hover:bg-gold-500 uppercase tracking-wider font-bold">Login</button>
+          </form>
         </div>
       </div>
     );
