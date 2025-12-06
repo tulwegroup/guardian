@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Bed, Bath, Square, MapPin, Download, Info, Phone, Mail, MessageCircle } from 'lucide-react';
 import { Property, Agent } from '../types';
@@ -183,30 +182,22 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
           <h3 className="text-2xl font-serif text-slate-900 mb-1">
              {leadPurpose === 'brochure' ? 'Download Brochure' : 'Request Info'}
           </h3>
-          <p className="text-xs text-gold-600 uppercase tracking-widest font-bold mb-6">Guardian Housing</p>
+          <p className="text-xs text-gray-500 mb-6">Please enter your details below.</p>
           
           {success ? (
              <div className="text-center py-8">
-               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
-               <h4 className="text-xl font-bold text-slate-900">Request Sent</h4>
-               <p className="text-gray-500 mt-2 text-sm">We received your request.</p>
-               <p className="text-gray-400 text-xs mt-1">Our agent will contact you shortly.</p>
+               <div className="text-green-600 text-xl font-bold mb-2">✓ Success</div>
+               <p className="text-gray-500 text-sm">We will be in touch shortly.</p>
              </div>
           ) : (
-            <form onSubmit={handleLeadSubmit} className="space-y-4">
-              <input required type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border-b border-gray-300 px-0 py-3 focus:border-gold-500 focus:outline-none placeholder-gray-400 text-sm" />
-              <input required type="email" placeholder="Email Address" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border-b border-gray-300 px-0 py-3 focus:border-gold-500 focus:outline-none placeholder-gray-400 text-sm" />
-              <input required type="tel" placeholder="Phone Number" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full border-b border-gray-300 px-0 py-3 focus:border-gold-500 focus:outline-none placeholder-gray-400 text-sm" />
-              
-              <div className="flex items-start gap-2 mt-4">
-                <input type="checkbox" required id="consent" className="mt-1" />
-                <label htmlFor="consent" className="text-[10px] text-gray-500 leading-tight">By clicking submit, I agree to receive communications from Guardian Housing via phone, email, and text message.</label>
-              </div>
-
-              <button disabled={isSubmitting} type="submit" className="w-full bg-slate-900 text-white py-4 font-bold hover:bg-gold-500 transition-colors uppercase tracking-widest mt-6 text-xs">
-                  {isSubmitting ? 'Processing...' : (leadPurpose === 'brochure' ? 'Download Now' : 'Submit Request')}
-              </button>
-            </form>
+             <form onSubmit={handleLeadSubmit} className="space-y-4">
+                <input required type="text" placeholder="Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-gold-500"/>
+                <input required type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-gold-500"/>
+                <input required type="tel" placeholder="Phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-gold-500"/>
+                <button disabled={isSubmitting} type="submit" className="w-full bg-slate-900 text-white py-3 font-bold uppercase tracking-wider text-xs hover:bg-gold-500 transition-colors">
+                   {isSubmitting ? 'Processing...' : 'Submit'}
+                </button>
+             </form>
           )}
         </div>
       </div>
