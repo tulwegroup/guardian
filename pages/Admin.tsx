@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Upload, Wrench, LayoutGrid, Users, FileText, MapPin, UserPlus, Download, LogOut, Loader2, DollarSign, FileCheck, ShieldAlert, ArrowRight, RefreshCw, Mail, Pencil, X } from 'lucide-react';
+import { Lock, Upload, Wrench, LayoutGrid, Users, FileText, MapPin, UserPlus, Download, LogOut, Loader2, DollarSign, FileCheck, ShieldAlert, ArrowRight, RefreshCw, Mail, Pencil, X, Trash2 } from 'lucide-react';
 import { Property, Agent, Community, Lead } from '../types';
 import { getSupabase } from '../lib/supabase';
 import { INITIAL_PROPERTIES, INITIAL_AGENTS, ALNAIR_PROJECTS, COMMUNITY_STRUCTURE } from '../constants';
@@ -149,6 +149,7 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
   const [leads, setLeads] = useState<Lead[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [adminProperties, setAdminProperties] = useState<Property[]>([]);
   
   // --- FORMS ---
   const [logoPreview, setLogoPreview] = useState<string>(currentLogoUrl);
@@ -156,7 +157,7 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
   const [isProcessingLogo, setIsProcessingLogo] = useState(false);
 
   // Extended Property Form
-  const [propForm, setPropForm] = useState<Partial<Property>>({
+  const initialPropForm: Partial<Property> = {
     title: '', price: 0, currency: 'AED', location: '', type: 'sale', status: 'Active',
     propertyType: 'Apartment', beds: 1, bedType: '1 BHK', baths: 1, bathType: '1 BATH',
     sqft: 0, sizeSqm: 0, description: '', isFeatured: false, lat: 25.2048, lng: 55.2708,
@@ -164,7 +165,10 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
     rentalFreq: 'yearly', cheques: '1',
     referenceId: '', nocStatus: 'No',
     listingAgentId: ''
-  });
+  };
+  const [propForm, setPropForm] = useState<Partial<Property>>(initialPropForm);
+  const [editingPropId, setEditingPropId] = useState<string | null>(null);
+
   const [selectedRegion, setSelectedRegion] = useState('');
   const [imagePreview, setImagePreview] = useState('');
 
@@ -230,6 +234,21 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
   const fetchAdminData = async () => {
     const supabase = getSupabase();
     if (!supabase) return;
+    
+    // Fetch Properties for management
+    const { data: propData } = await supabase.from('properties').select('*').order('created_at', { ascending: false });
+    if (propData) {
+        // Map snake_case to camelCase for internal use
+        const mappedProps = propData.map((p: any) => ({
+             ...p, imageUrl: p.image_url, isFeatured: p.is_featured, agentId: p.agent_id, 
+             projectName: p.project_name, originalPrice: p.original_price, isDistress: p.is_distress,
+             propertyType: p.property_type, sizeSqm: p.size_sqm, bedType: p.bed_type, bathType: p.bath_type,
+             studyRoom: p.study_room, rentalFreq: p.rental_freq, referenceId: p.reference_id, nocStatus: p.noc_status,
+             nocStartDate: p.noc_start_date, nocEndDate: p.noc_end_date, listingAgentId: p.listing_agent_id
+        }));
+        setAdminProperties(mappedProps);
+    }
+
     const { data: leadData } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
     if (leadData) {
       const mappedLeads: Lead[] = leadData.map((l: any) => ({
@@ -377,19 +396,12 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
     const finalBeds = parseInt(propForm.bedType?.split(' ')[0] || '1') || 1;
     const finalBaths = parseFloat(propForm.bathType?.split(' ')[0] || '1') || 1;
 
-    // Determine Agent ID:
-    // If Admin selects someone else, use that.
-    // Otherwise, use current agent's ID.
-    // Fallback to master-admin.
     let assignedAgentId = currentAgent?.id || 'master-admin';
     if (currentAgent?.role === 'admin' && propForm.listingAgentId) {
         assignedAgentId = propForm.listingAgentId;
     }
 
-    // Explicitly construct payload to prevent 'Column not found' errors
-    // Do NOT spread ...propForm directly, as it contains camelCase keys that don't exist in DB
     const newPropertyPayload = {
-        id: Date.now().toString(),
         title: propForm.title,
         price: propForm.price,
         location: propForm.location,
@@ -428,18 +440,53 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
     };
 
     if (supabase && dbStatus === 'connected') {
-        const { error } = await supabase.from('properties').insert(newPropertyPayload);
-        if (error) { 
-            alert(`DB Error: ${error.message}`); 
-            setIsSubmitting(false); 
-            return; 
+        if (editingPropId) {
+            // Update
+            const { error } = await supabase.from('properties').update(newPropertyPayload).eq('id', editingPropId);
+            if (error) { alert(`DB Error: ${error.message}`); setIsSubmitting(false); return; }
+        } else {
+            // Create
+            const { error } = await supabase.from('properties').insert({
+                id: Date.now().toString(),
+                ...newPropertyPayload
+            });
+            if (error) { alert(`DB Error: ${error.message}`); setIsSubmitting(false); return; }
         }
-        else window.dispatchEvent(new Event('supabase-config-updated'));
+        window.dispatchEvent(new Event('supabase-config-updated'));
+        fetchAdminData();
+        handleCancelPropEdit();
     }
 
     setIsSuccess(true);
     setIsSubmitting(false);
     setTimeout(() => setIsSuccess(false), 3000);
+  };
+
+  const handleEditProperty = (prop: Property) => {
+    setEditingPropId(prop.id);
+    setPropForm({ ...prop });
+    setImagePreview(prop.imageUrl);
+    setSelectedRegion(''); // Reset regions, user has to re-select if changing location
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteProperty = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this property? This cannot be undone.")) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    
+    const { error } = await supabase.from('properties').delete().eq('id', id);
+    if (error) alert("Error deleting property: " + error.message);
+    else {
+        fetchAdminData();
+        window.dispatchEvent(new Event('supabase-config-updated'));
+    }
+  };
+
+  const handleCancelPropEdit = () => {
+    setEditingPropId(null);
+    setPropForm(initialPropForm);
+    setImagePreview('');
   };
 
   const handleEditAgent = (agent: Agent) => {
@@ -475,38 +522,21 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
       let newAgentData: Agent | null = null;
 
       if (editingAgentId) {
-          // Update Mode
           const { error: err, data } = await supabase.from('agents').update(payload).eq('id', editingAgentId).select().single();
           error = err;
           if (data) newAgentData = { ...data, photoUrl: data.photo_url } as Agent;
       } else {
-          // Create Mode
-          const { error: err } = await supabase.from('agents').insert({
-              id: Date.now().toString(),
-              ...payload
-          });
+          const { error: err } = await supabase.from('agents').insert({ id: Date.now().toString(), ...payload });
           error = err;
       }
 
       if (!error) { 
           alert(editingAgentId ? "Profile Updated!" : "Agent Created!"); 
-          
-          // If the user edited their OWN profile, update the session immediately
           if (editingAgentId === currentAgent.id && newAgentData) {
-              // Ensure we keep the role and ID but update display info
-              const updatedSession = {
-                  ...currentAgent,
-                  name: newAgentData.name,
-                  email: newAgentData.email,
-                  phone: newAgentData.phone,
-                  whatsapp: newAgentData.whatsapp,
-                  photoUrl: newAgentData.photoUrl,
-                  password: newAgentData.password
-              };
+              const updatedSession = { ...currentAgent, ...newAgentData };
               setCurrentAgent(updatedSession);
               localStorage.setItem('guardian_admin_session', JSON.stringify(updatedSession));
           }
-
           fetchAdminData(); 
           cancelEditAgent();
       } else {
@@ -604,12 +634,13 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
         {activeTab === 'properties' && (
            <div className="bg-white p-8 rounded shadow-sm border border-gray-100">
                <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-lg font-bold">Add Property</h2>
+                 <h2 className="text-lg font-bold">{editingPropId ? 'Edit Property' : 'Add Property'}</h2>
                  <button onClick={handleSeedOffPlan} disabled={isSeeding} className="bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-1.5 rounded text-xs border border-purple-200 flex items-center gap-1">{isSeeding ? <Loader2 size={12} className="animate-spin"/> : <Download size={12}/>} Load Al Nair</button>
                </div>
-               {isSuccess && <div className="bg-green-100 text-green-700 p-3 rounded mb-4 flex items-center gap-2"><FileCheck size={16}/> Published Successfully!</div>}
-               <form onSubmit={handlePropSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* ... Property Form Inputs ... */}
+               
+               {isSuccess && <div className="bg-green-100 text-green-700 p-3 rounded mb-4 flex items-center gap-2"><FileCheck size={16}/> {editingPropId ? 'Updated Successfully' : 'Published Successfully'}</div>}
+               
+               <form onSubmit={handlePropSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 border-b border-gray-100 pb-12">
                   <div className="md:col-span-2 bg-gray-50 p-4 rounded border border-gray-200">
                      <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Basic Information</label>
                      <div className="grid md:grid-cols-2 gap-4">
@@ -672,13 +703,12 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                   <div className="md:col-span-2 bg-yellow-50 p-4 rounded border border-yellow-200">
                      <label className="text-xs font-bold text-yellow-800 uppercase mb-2 block flex items-center gap-2"><MapPin size={14}/> Location & Community</label>
                      
-                     {/* Region and Community Dropdowns */}
                      <div className="grid md:grid-cols-2 gap-4 mb-4">
                         <select 
                            value={selectedRegion} 
                            onChange={e => {
                                setSelectedRegion(e.target.value);
-                               setPropForm({...propForm, location: ''}); // Reset sub-community
+                               setPropForm({...propForm, location: ''});
                            }} 
                            className="border p-2 rounded font-medium"
                         >
@@ -740,7 +770,6 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                            <option value="Other Agents">NOC: Other Agents</option>
                         </select>
                         
-                        {/* Only Admin can see this dropdown to assign other agents */}
                         {currentAgent.role === 'admin' ? (
                             <select value={propForm.listingAgentId} onChange={e=>setPropForm({...propForm, listingAgentId: e.target.value})} className="border p-2 rounded">
                                 <option value="">-- Assign To Agent (Optional) --</option>
@@ -764,22 +793,59 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                       </div>
                       <textarea placeholder="Description..." value={propForm.description} onChange={e=>setPropForm({...propForm, description: e.target.value})} className="w-full border p-2 rounded mt-2 h-24"/>
                   </div>
-                  <div className="md:col-span-2 flex justify-end">
-                      <button type="submit" disabled={isSubmitting} className="bg-slate-900 text-white px-8 py-3 rounded hover:bg-gold-500 transition-colors uppercase tracking-wider font-bold">{isSubmitting ? 'Saving...' : 'Publish Property'}</button>
+                  <div className="md:col-span-2 flex justify-end gap-3">
+                      {editingPropId && <button type="button" onClick={handleCancelPropEdit} className="text-gray-600 px-4 py-2 hover:text-gray-900 border border-gray-300 rounded">Cancel</button>}
+                      <button type="submit" disabled={isSubmitting} className="bg-slate-900 text-white px-8 py-3 rounded hover:bg-gold-500 transition-colors uppercase tracking-wider font-bold">{isSubmitting ? 'Saving...' : (editingPropId ? 'Update Property' : 'Publish Property')}</button>
                   </div>
                </form>
+               
+               <h3 className="text-xl font-bold mb-4">Manage Properties</h3>
+               <div className="overflow-x-auto">
+                   <table className="w-full text-sm text-left">
+                       <thead className="bg-gray-100 uppercase text-xs font-bold text-gray-500">
+                           <tr>
+                               <th className="px-4 py-3">Property</th>
+                               <th className="px-4 py-3">Price</th>
+                               <th className="px-4 py-3">Type</th>
+                               <th className="px-4 py-3 text-right">Actions</th>
+                           </tr>
+                       </thead>
+                       <tbody className="divide-y divide-gray-100">
+                           {adminProperties.map(p => (
+                               <tr key={p.id} className="hover:bg-gray-50 group">
+                                   <td className="px-4 py-3">
+                                       <div className="flex items-center gap-3">
+                                           <img src={p.imageUrl} className="w-10 h-10 rounded object-cover" alt="thumb"/>
+                                           <div>
+                                               <p className="font-bold text-slate-900 line-clamp-1">{p.title}</p>
+                                               <p className="text-xs text-gray-500">{p.location}</p>
+                                           </div>
+                                       </div>
+                                   </td>
+                                   <td className="px-4 py-3 font-medium text-slate-900">{p.price.toLocaleString()} {p.currency}</td>
+                                   <td className="px-4 py-3"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs uppercase font-bold">{p.type}</span></td>
+                                   <td className="px-4 py-3 text-right">
+                                       <div className="flex justify-end gap-2">
+                                           <button onClick={() => handleEditProperty(p)} className="text-gray-400 hover:text-blue-600 p-1"><Pencil size={16}/></button>
+                                           <button onClick={() => handleDeleteProperty(p.id)} className="text-gray-400 hover:text-red-600 p-1"><Trash2 size={16}/></button>
+                                       </div>
+                                   </td>
+                               </tr>
+                           ))}
+                           {adminProperties.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-gray-400">No properties found.</td></tr>}
+                       </tbody>
+                   </table>
+               </div>
            </div>
         )}
 
-        {/* AGENTS TAB */}
+        {/* OTHER TABS (Agents, Leads, Communities, Blog, Settings) are handled by the same JSX structure above, toggled by activeTab */}
         {activeTab === 'agents' && (
            <div className="bg-white p-8 rounded shadow-sm">
                <div className="flex justify-between items-center mb-6">
                  <h2 className="text-lg font-bold">Manage Agents</h2>
                  <button onClick={fetchAdminData} className="text-gold-500"><RefreshCw size={16}/></button>
                </div>
-               
-               {/* AGENT FORM (Create or Edit) - Visible to Admins OR anyone editing themselves */}
                {(currentAgent.role === 'admin' || editingAgentId) && (
                   <form onSubmit={handleAgentSubmit} className={`mb-8 p-6 border rounded ${editingAgentId ? 'bg-orange-50 border-orange-100' : 'bg-blue-50 border-blue-100'}`}>
                       <h3 className={`text-sm font-bold mb-4 flex items-center gap-2 ${editingAgentId ? 'text-orange-900' : 'text-blue-900'}`}>
@@ -804,7 +870,6 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                       </div>
                   </form>
                )}
-
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {agents.map(agent => (
                       <div key={agent.id} className="border p-4 rounded flex items-center justify-between bg-white shadow-sm group">
@@ -815,11 +880,8 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                                   <p className="text-xs text-gray-500">{agent.email}</p>
                               </div>
                           </div>
-                          {/* Show edit button if current user is admin OR if it is their own profile */}
                           {(currentAgent.role === 'admin' || currentAgent.id === agent.id) && (
-                              <button onClick={() => handleEditAgent(agent)} className="text-gray-400 hover:text-orange-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Agent">
-                                  <Pencil size={16} />
-                              </button>
+                              <button onClick={() => handleEditAgent(agent)} className="text-gray-400 hover:text-orange-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Agent"><Pencil size={16} /></button>
                           )}
                       </div>
                   ))}
@@ -827,55 +889,27 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
            </div>
         )}
 
-        {/* LEADS TAB */}
         {activeTab === 'leads' && (
            <div className="bg-white p-8 rounded shadow-sm">
                <div className="flex justify-between items-center mb-4">
                  <h2 className="text-lg font-bold">Inquiries & Leads</h2>
                  <button onClick={fetchAdminData} className="bg-gray-100 p-2 rounded hover:bg-gray-200"><RefreshCw size={16}/></button>
                </div>
-               
-               {leads.length === 0 ? (
-                 <div className="text-center py-10 text-gray-400 italic">No inquiries yet.</div>
-               ) : (
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-left border-b border-gray-200">
-                            <tr>
-                                <th className="p-4 font-bold text-slate-700">Name</th>
-                                <th className="p-4 font-bold text-slate-700">Contact</th>
-                                <th className="p-4 font-bold text-slate-700">Interest</th>
-                                <th className="p-4 font-bold text-slate-700">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {leads.map(lead => (
-                                <tr key={lead.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-4 font-medium text-slate-900">{lead.name}</td>
-                                    <td className="p-4">
-                                        <div className="flex flex-col gap-1">
-                                            <a href={`mailto:${lead.email}`} className="text-blue-600 hover:underline flex items-center gap-1"><Mail size={12}/> {lead.email}</a>
-                                            <span className="text-gray-500 text-xs">{lead.phone}</span>
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-gray-600">
-                                        {lead.propertyId === 'general-inquiry' ? (
-                                            <span className="bg-gold-100 text-gold-800 px-2 py-1 rounded text-xs font-bold">Invest In Future</span>
-                                        ) : (
-                                            <span className="bg-blue-50 text-blue-800 px-2 py-1 rounded text-xs">Prop ID: {lead.propertyId}</span>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-gray-500">{new Date(lead.createdAt).toLocaleDateString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                 </div>
+               {leads.length === 0 ? ( <div className="text-center py-10 text-gray-400 italic">No inquiries yet.</div> ) : (
+                 <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50 text-left border-b border-gray-200"><tr><th className="p-4 font-bold text-slate-700">Name</th><th className="p-4 font-bold text-slate-700">Contact</th><th className="p-4 font-bold text-slate-700">Interest</th><th className="p-4 font-bold text-slate-700">Date</th></tr></thead><tbody>
+                    {leads.map(lead => (
+                        <tr key={lead.id} className="border-b hover:bg-gray-50">
+                            <td className="p-4 font-medium text-slate-900">{lead.name}</td>
+                            <td className="p-4"><div className="flex flex-col gap-1"><a href={`mailto:${lead.email}`} className="text-blue-600 hover:underline flex items-center gap-1"><Mail size={12}/> {lead.email}</a><span className="text-gray-500 text-xs">{lead.phone}</span></div></td>
+                            <td className="p-4 text-gray-600">{lead.propertyId === 'general-inquiry' ? <span className="bg-gold-100 text-gold-800 px-2 py-1 rounded text-xs font-bold">Invest In Future</span> : <span className="bg-blue-50 text-blue-800 px-2 py-1 rounded text-xs">Prop ID: {lead.propertyId}</span>}</td>
+                            <td className="p-4 text-gray-500">{new Date(lead.createdAt).toLocaleDateString()}</td>
+                        </tr>
+                    ))}
+                 </tbody></table></div>
                )}
            </div>
         )}
 
-        {/* COMMUNITIES TAB */}
         {activeTab === 'communities' && (
            <div className="bg-white p-8 rounded shadow-sm">
              <h2 className="text-lg font-bold mb-4">Manage Communities</h2>
@@ -891,7 +925,6 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
            </div>
         )}
         
-        {/* BLOG TAB */}
         {activeTab === 'blog' && (
            <div className="bg-white p-8 rounded shadow-sm">
              <h2 className="text-lg font-bold mb-4">Blog & SEO</h2>
@@ -906,7 +939,6 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
            </div>
         )}
 
-        {/* SETTINGS TAB */}
         {activeTab === 'settings' && (
            <div className="bg-white p-8 rounded shadow-sm">
               <h2 className="text-lg font-bold mb-6">Brand Settings</h2>
