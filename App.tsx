@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import Listings from './pages/Listings';
+import PropertyDetails from './pages/PropertyDetails';
 import Admin from './pages/Admin';
 import Communities from './pages/Communities';
 import Guides from './pages/Guides';
@@ -58,7 +59,7 @@ const App: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState<string>(DEFAULT_LOGO);
 
   useEffect(() => {
-    console.log("GUARDIAN APP v3.3 LOADED");
+    console.log("GUARDIAN APP v3.4 LOADED");
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -115,6 +116,9 @@ const App: React.FC = () => {
             <Route path="/buy" element={<Listings type="sale" properties={properties} />} />
             <Route path="/rent" element={<Listings type="rent" properties={properties} />} />
             
+            {/* Property Details Route */}
+            <Route path="/property/:id" element={<PropertyDetails />} />
+
             {/* Dedicated Custom Pages */}
             <Route path="/off-plan" element={<OffPlan />} />
             <Route path="/uk-investment" element={<UKInvestment />} />
@@ -125,7 +129,15 @@ const App: React.FC = () => {
             <Route path="/selling-guide" element={<Guides />} />
             <Route path="/mortgage-calculator" element={<MortgageCalculator />} />
             
-            <Route path="/admin" element={<Admin onAddProperty={handleAddProperty} onUpdateLogo={setLogoUrl} onResetLogo={()=>{}} currentLogoUrl={logoUrl} />} />
+            {/* Admin */}
+            <Route path="/admin" element={
+              <Admin 
+                onAddProperty={handleAddProperty} 
+                onUpdateLogo={setLogoUrl}
+                onResetLogo={() => setLogoUrl(DEFAULT_LOGO)}
+                currentLogoUrl={logoUrl}
+              />
+            } />
           </Routes>
         </main>
         <Footer />
@@ -135,4 +147,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-    

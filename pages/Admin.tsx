@@ -472,10 +472,13 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
       };
 
       let error;
+      let newAgentData: Agent | null = null;
+
       if (editingAgentId) {
           // Update Mode
-          const { error: err } = await supabase.from('agents').update(payload).eq('id', editingAgentId);
+          const { error: err, data } = await supabase.from('agents').update(payload).eq('id', editingAgentId).select().single();
           error = err;
+          if (data) newAgentData = { ...data, photoUrl: data.photo_url } as Agent;
       } else {
           // Create Mode
           const { error: err } = await supabase.from('agents').insert({
@@ -486,7 +489,24 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
       }
 
       if (!error) { 
-          alert(editingAgentId ? "Agent Updated!" : "Agent Created!"); 
+          alert(editingAgentId ? "Profile Updated!" : "Agent Created!"); 
+          
+          // If the user edited their OWN profile, update the session immediately
+          if (editingAgentId === currentAgent.id && newAgentData) {
+              // Ensure we keep the role and ID but update display info
+              const updatedSession = {
+                  ...currentAgent,
+                  name: newAgentData.name,
+                  email: newAgentData.email,
+                  phone: newAgentData.phone,
+                  whatsapp: newAgentData.whatsapp,
+                  photoUrl: newAgentData.photoUrl,
+                  password: newAgentData.password
+              };
+              setCurrentAgent(updatedSession);
+              localStorage.setItem('guardian_admin_session', JSON.stringify(updatedSession));
+          }
+
           fetchAdminData(); 
           cancelEditAgent();
       } else {
@@ -548,7 +568,21 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
     <div className="pt-28 pb-20 min-h-screen bg-slate-50">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="bg-slate-900 rounded-t-lg px-8 py-6 flex justify-between items-center shadow-lg mb-6">
-            <div className="flex items-center gap-4"><img src={currentAgent.photoUrl} className="w-12 h-12 rounded-full border-2 border-gold-400" alt="Profile" /><div><h1 className="text-xl font-serif text-white">{currentAgent.name}</h1><p className="text-gold-500 text-xs uppercase">{currentAgent.role}</p></div></div>
+            <div className="flex items-center gap-4">
+                <img src={currentAgent.photoUrl} className="w-12 h-12 rounded-full border-2 border-gold-400" alt="Profile" />
+                <div>
+                    <h1 className="text-xl font-serif text-white">{currentAgent.name}</h1>
+                    <div className="flex items-center gap-2">
+                        <p className="text-gold-500 text-xs uppercase">{currentAgent.role}</p>
+                        <button 
+                          onClick={() => { setActiveTab('agents'); handleEditAgent(currentAgent); }} 
+                          className="text-gray-400 hover:text-white text-xs flex items-center gap-1 ml-2 border border-gray-700 rounded px-2 py-0.5 hover:border-gray-500 transition-colors"
+                        >
+                          <Pencil size={10}/> Edit Profile
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div className="flex items-center gap-4"><button onClick={handleLogout} className="text-gray-400 hover:text-white text-xs flex items-center gap-1"><LogOut size={12}/> Logout</button><button onClick={() => setShowScript(true)} className="bg-slate-800 text-gold-500 px-3 py-1 rounded text-xs border border-slate-700 hover:border-gold-500"><Wrench size={12} className="inline mr-1"/> Repair / Show Script</button></div>
         </div>
 
@@ -745,15 +779,15 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                  <button onClick={fetchAdminData} className="text-gold-500"><RefreshCw size={16}/></button>
                </div>
                
-               {/* AGENT FORM (Create or Edit) */}
-               {currentAgent.role === 'admin' && (
+               {/* AGENT FORM (Create or Edit) - Visible to Admins OR anyone editing themselves */}
+               {(currentAgent.role === 'admin' || editingAgentId) && (
                   <form onSubmit={handleAgentSubmit} className={`mb-8 p-6 border rounded ${editingAgentId ? 'bg-orange-50 border-orange-100' : 'bg-blue-50 border-blue-100'}`}>
                       <h3 className={`text-sm font-bold mb-4 flex items-center gap-2 ${editingAgentId ? 'text-orange-900' : 'text-blue-900'}`}>
                           {editingAgentId ? <><Pencil size={16}/> Edit Agent Profile</> : <><UserPlus size={16}/> Create New Agent Profile</>}
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <input required type="text" placeholder="Full Name" value={agentForm.name} onChange={e=>setAgentForm({...agentForm, name: e.target.value})} className="border p-2 rounded bg-white" />
-                          <input required type="email" placeholder="Email (Login)" value={agentForm.email} onChange={e=>setAgentForm({...agentForm, email: e.target.value})} className="border p-2 rounded bg-white" />
+                          <input required type="email" placeholder="Email (Login)" value={agentForm.email} onChange={e=>setAgentForm({...agentForm, email: e.target.value})} className="border p-2 rounded bg-white" disabled={currentAgent.role !== 'admin' && editingAgentId === currentAgent.id} />
                           <input required type="tel" placeholder="Phone" value={agentForm.phone} onChange={e=>setAgentForm({...agentForm, phone: e.target.value})} className="border p-2 rounded bg-white" />
                           <input required type="tel" placeholder="WhatsApp (No spaces)" value={agentForm.whatsapp} onChange={e=>setAgentForm({...agentForm, whatsapp: e.target.value})} className="border p-2 rounded bg-white" />
                           <input required type="password" placeholder="Password" value={agentForm.password} onChange={e=>setAgentForm({...agentForm, password: e.target.value})} className="border p-2 rounded bg-white" />
@@ -765,7 +799,7 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                       <div className="mt-4 flex justify-end gap-2">
                           {editingAgentId && <button type="button" onClick={cancelEditAgent} className="text-gray-600 hover:text-gray-900 px-4 py-2 text-sm flex items-center gap-1"><X size={14}/> Cancel</button>}
                           <button type="submit" disabled={isSubmitting} className={`text-white px-4 py-2 rounded text-sm ${editingAgentId ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                              {isSubmitting ? 'Saving...' : (editingAgentId ? 'Update Agent' : 'Create Agent')}
+                              {isSubmitting ? 'Saving...' : (editingAgentId ? 'Update Profile' : 'Create Agent')}
                           </button>
                       </div>
                   </form>
@@ -781,7 +815,8 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                                   <p className="text-xs text-gray-500">{agent.email}</p>
                               </div>
                           </div>
-                          {currentAgent.role === 'admin' && (
+                          {/* Show edit button if current user is admin OR if it is their own profile */}
+                          {(currentAgent.role === 'admin' || currentAgent.id === agent.id) && (
                               <button onClick={() => handleEditAgent(agent)} className="text-gray-400 hover:text-orange-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Agent">
                                   <Pencil size={16} />
                               </button>
@@ -864,24 +899,36 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
                 <div className="grid gap-4">
                    <input type="text" placeholder="Blog Post Title" required value={blogForm.title} onChange={e=>setBlogForm({...blogForm, title: e.target.value})} className="border p-2 rounded"/>
                    <textarea placeholder="Article Content..." required value={blogForm.content} onChange={e=>setBlogForm({...blogForm, content: e.target.value})} className="border p-2 rounded h-32"/>
-                   <div className="flex gap-2"><input type="text" placeholder="Header Image URL" value={blogImage} onChange={e=>setBlogImage(e.target.value)} className="flex-grow border p-2 rounded" /><label className="bg-gray-100 px-3 py-2 rounded cursor-pointer hover:bg-gray-200"><Upload size={16}/><input type="file" className="hidden" onChange={(e)=>{if(e.target.files?.[0]) { const r = new FileReader(); r.onload=()=>setBlogImage(r.result as string); r.readAsDataURL(e.target.files[0]); }}}/></label></div>
-                   <button type="submit" disabled={isSubmitting} className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-gold-500">{isSubmitting ? 'Posting...' : 'Publish Article'}</button>
+                   <div className="flex gap-2"><input type="text" placeholder="Image URL" value={blogImage} onChange={e=>setBlogImage(e.target.value)} className="flex-grow border p-2 rounded" /><label className="bg-gray-100 px-3 py-2 rounded cursor-pointer hover:bg-gray-200"><Upload size={16}/><input type="file" className="hidden" onChange={(e)=>{if(e.target.files?.[0]) { const r = new FileReader(); r.onload=()=>setBlogImage(r.result as string); r.readAsDataURL(e.target.files[0]); }}}/></label></div>
+                   <button type="submit" disabled={isSubmitting} className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-gold-500">{isSubmitting ? 'Publish Post' : 'Publish'}</button>
                 </div>
              </form>
-             <div className="text-xs text-gray-500">Note: Blog posts appear at the bottom of the Off-Plan page for SEO purposes.</div>
            </div>
         )}
 
         {/* SETTINGS TAB */}
         {activeTab === 'settings' && (
-            <div className="bg-white p-8 rounded shadow-sm">
-               <h2 className="text-lg font-bold mb-4">Brand Settings</h2>
-               <div className="flex flex-col md:flex-row gap-8 items-start">
-                   <div className="border p-4 rounded bg-gray-50 text-center"><img src={logoPreview} className="h-32 object-contain mx-auto mb-2" alt="Logo"/><p className="text-xs text-gray-500">Current Logo Preview</p></div>
-                   <div className="flex-grow space-y-4"><div><label className="block text-sm font-bold text-gray-700 mb-2">Upload New Logo (Image File)</label><input type="file" accept="image/*" onChange={handleLogoFileUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/></div><div className="pt-4 border-t border-gray-100 flex gap-4"><button onClick={handleSaveLogo} disabled={!hasUnsavedLogo} className="bg-gold-500 text-white px-6 py-2 rounded text-sm font-bold hover:bg-gold-600 disabled:opacity-50 shadow-md">{isProcessingLogo ? 'Saving...' : 'Save Brand Settings'}</button></div></div>
-               </div>
-            </div>
+           <div className="bg-white p-8 rounded shadow-sm">
+              <h2 className="text-lg font-bold mb-6">Brand Settings</h2>
+              <div className="flex items-center gap-6">
+                 <div className="relative group w-32 h-32 bg-slate-900 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-600 hover:border-gold-500 transition-colors">
+                     <img src={logoPreview} alt="Logo" className="max-w-full max-h-full p-2 object-contain" />
+                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
+                        <label className="cursor-pointer text-white flex flex-col items-center gap-1 text-xs">
+                           <Upload size={20}/> <span>Change</span>
+                           <input type="file" accept="image/*" className="hidden" onChange={handleLogoFileUpload}/>
+                        </label>
+                     </div>
+                 </div>
+                 <div>
+                    <h3 className="font-bold text-slate-900">Company Logo</h3>
+                    <p className="text-gray-500 text-xs mb-4">Recommended: 200x200px PNG (Transparent)</p>
+                    {hasUnsavedLogo && <button onClick={handleSaveLogo} disabled={isProcessingLogo} className="bg-gold-500 text-white px-4 py-2 rounded text-sm hover:bg-gold-600 font-bold">{isProcessingLogo ? 'Saving...' : 'Save New Logo'}</button>}
+                 </div>
+              </div>
+           </div>
         )}
+
       </div>
     </div>
   );

@@ -1,11 +1,9 @@
 
-
-
-
 import React, { useState } from 'react';
-import { Bed, Bath, Square, MapPin, Download, Info, Tag, Phone, Mail, MessageCircle } from 'lucide-react';
+import { Bed, Bath, Square, MapPin, Download, Info, Phone, Mail, MessageCircle } from 'lucide-react';
 import { Property, Agent } from '../types';
 import { getSupabase } from '../lib/supabase';
+import { Link } from 'react-router-dom';
 
 interface PropertyCardProps {
   property: Property;
@@ -72,30 +70,31 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
     <>
     <div className="group bg-white rounded-md overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-200 flex flex-col h-full relative font-sans">
       
-      {/* IMAGE CONTAINER */}
-      <div className="relative overflow-hidden h-64">
+      {/* IMAGE CONTAINER - Clickable */}
+      <Link to={`/property/${property.id}`} className="relative overflow-hidden h-64 block">
         <img src={property.imageUrl} alt={property.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>
         
         {/* TOP RIGHT BADGES */}
-        <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-1 pointer-events-none">
            <div className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-sm shadow-sm">
              {property.isDistress ? 'DISTRESS DEAL' : (property.type === 'sale' ? 'FOR SALE' : property.type === 'rent' ? 'FOR RENT' : 'OFF-PLAN')}
            </div>
            {property.status === 'Active' && <div className="bg-white/90 text-slate-900 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-sm shadow-sm">ACTIVE</div>}
         </div>
         
-        {/* BOTTOM RIGHT ACTIONS ON IMAGE */}
-        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        {/* BOTTOM RIGHT ACTIONS */}
+        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onClick={(e) => e.preventDefault()}>
            {property.brochureUrl && (
-             <button onClick={() => { setLeadPurpose('brochure'); setShowLeadForm(true); }} className="bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-colors" title="Download Brochure">
+             <button onClick={(e) => { e.preventDefault(); setLeadPurpose('brochure'); setShowLeadForm(true); }} className="bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-colors" title="Download Brochure">
                 <Download size={16}/>
              </button>
            )}
-           <button onClick={() => { setLeadPurpose('details'); setShowLeadForm(true); }} className="bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-colors" title="View Details">
+           {/* Direct link to details page icon */}
+           <Link to={`/property/${property.id}`} className="bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm transition-colors" title="View Details">
                <Info size={16}/>
-           </button>
+           </Link>
         </div>
-      </div>
+      </Link>
       
       {/* CONTENT */}
       <div className="p-4 flex flex-col flex-grow">
@@ -117,10 +116,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
            </div>
         </div>
 
-        {/* TITLE */}
-        <h3 className="text-base font-serif text-slate-800 line-clamp-1 mb-1 group-hover:text-gold-600 transition-colors">
+        {/* TITLE - Clickable */}
+        <Link to={`/property/${property.id}`} className="text-base font-serif text-slate-800 line-clamp-1 mb-1 group-hover:text-gold-600 transition-colors block">
             {property.title}
-        </h3>
+        </Link>
 
         {/* LOCATION */}
         <div className="flex items-center text-gray-500 text-xs mb-4">
@@ -175,7 +174,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
       </div>
     </div>
 
-    {/* LEAD FORM POPUP (Only used for Brochure/Info requests now) */}
+    {/* LEAD FORM POPUP */}
     {showLeadForm && (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
         <div className="bg-white rounded-none shadow-2xl max-w-md w-full p-8 animate-fade-in relative border-t-4 border-gold-500">

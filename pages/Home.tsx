@@ -1,8 +1,7 @@
 
-
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Building2, Users, X } from 'lucide-react';
+import { ArrowRight, Star, Building2, Users } from 'lucide-react';
 import PropertyCard from '../components/PropertyCard';
 import { Property } from '../types';
 import { PARTNERS } from '../constants';
@@ -12,10 +11,11 @@ interface HomeProps {
   featuredProperties: Property[];
 }
 
+// Reliable, high-quality Pexels video links (Direct MP4)
 const VIDEOS = [
-  "https://player.vimeo.com/external/371836666.sd.mp4?s=d9913106598c171e222956e1074e6f3044439c3e&profile_id=164&oauth2_token_id=57447761&v=2",
-  "https://player.vimeo.com/external/494252666.sd.mp4?s=7b34e55e691129b053c0725a7732a30cb17173e6&profile_id=164&oauth2_token_id=57447761&v=2",
-  "https://player.vimeo.com/external/369068415.sd.mp4?s=811654483863d666d9263a233405c48b2512f738&profile_id=164&oauth2_token_id=57447761&v=2"
+  "https://videos.pexels.com/video-files/7578544/7578544-hd_1920_1080_30fps.mp4", // Luxury Pool
+  "https://videos.pexels.com/video-files/3770033/3770033-hd_1920_1080_25fps.mp4", // Modern Villa Exterior
+  "https://videos.pexels.com/video-files/7578552/7578552-hd_1920_1080_30fps.mp4"  // Elegant Patio
 ];
 
 const Home: React.FC<HomeProps> = ({ featuredProperties }) => {
@@ -59,11 +59,7 @@ const Home: React.FC<HomeProps> = ({ featuredProperties }) => {
         if (error) console.error("Lead Save Error:", error);
     }
     
-    // 2. Simulate Email Sending (Client-Side)
-    // NOTE: To send REAL emails, you would integrate EmailJS here.
-    // Example: emailjs.send('service_id', 'template_id', { to_email: formData.email, name: formData.name })
-    console.log("Simulating email to:", formData.email);
-
+    // 2. Simulate Success
     setTimeout(() => {
        setIsSubmitting(false); 
        setSuccess(true);
@@ -81,15 +77,13 @@ const Home: React.FC<HomeProps> = ({ featuredProperties }) => {
       <section className="relative h-screen min-h-[600px] w-full overflow-hidden bg-slate-900">
         <div className="absolute inset-0 bg-slate-900/40 z-10"></div>
         
-        {videoError && (
+        {videoError ? (
            <img 
              src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?q=80&w=2071" 
              className="absolute inset-0 w-full h-full object-cover z-0 animate-fade-in"
              alt="Luxury Villa"
            />
-        )}
-
-        {!videoError && (
+        ) : (
           <video 
             key={currentVideoIndex}
             src={VIDEOS[currentVideoIndex]}
@@ -101,6 +95,7 @@ const Home: React.FC<HomeProps> = ({ featuredProperties }) => {
             onError={handleVideoError}
             className="absolute inset-0 w-full h-full object-cover z-0"
             poster="https://images.unsplash.com/photo-1613490493576-7fde63acd811?q=80&w=2071"
+            style={{ objectFit: 'cover' }}
           >
           </video>
         )}
