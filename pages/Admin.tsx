@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Lock, Upload, Wrench, LayoutGrid, Users, FileText, MapPin, UserPlus, Download, LogOut, Loader2, DollarSign, FileCheck, ShieldAlert, ArrowRight, RefreshCw, Mail, Pencil, X, Trash2, Briefcase } from 'lucide-react';
 import { Property, Agent, Community, Lead, Job, BlogPost } from '../types';
@@ -88,6 +89,11 @@ CREATE TABLE IF NOT EXISTS site_settings (
 -- Seed Master Admin
 INSERT INTO agents (id, name, email, phone, whatsapp, role, password, photo_url)
 VALUES ('master-admin', 'Guardian Admin', 'hello@guardianhousing.ae', '+971505804669', '+971505804669', 'admin', 'guardian2024', 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Arslan Admin
+INSERT INTO agents (id, name, email, phone, whatsapp, role, password, photo_url)
+VALUES ('admin-arslan', 'Arslan', 'Arslan@guardianhousing.ae', '+971505804669', '+971505804669', 'admin', 'guardian2024', 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200')
 ON CONFLICT (id) DO NOTHING;
 
 -- Disable Security
@@ -331,10 +337,13 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
             };
             setCurrentAgent(loggedInAgent);
             localStorage.setItem('guardian_admin_session', JSON.stringify(loggedInAgent));
-        } else if (loginEmail === 'hello@guardianhousing.ae' && loginPass === 'guardian2024') {
+        } else if ((loginEmail === 'hello@guardianhousing.ae' || loginEmail.toLowerCase() === 'arslan@guardianhousing.ae') && loginPass === 'guardian2024') {
              // AUTO-CREATE ADMIN
+             const adminId = loginEmail.toLowerCase().includes('arslan') ? 'admin-arslan' : 'master-admin';
+             const adminName = loginEmail.toLowerCase().includes('arslan') ? 'Arslan' : 'Guardian Admin';
+
              const { data: newAdmin } = await supabase.from('agents').upsert({
-                id: 'master-admin', name: 'Guardian Admin', email: 'hello@guardianhousing.ae', phone: '+971505804669', whatsapp: '971505804669', photo_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200', role: 'admin', password: 'guardian2024'
+                id: adminId, name: adminName, email: loginEmail, phone: '+971505804669', whatsapp: '971505804669', photo_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200', role: 'admin', password: 'guardian2024'
              }).select().single();
              if (newAdmin) {
                  const adminAgent: Agent = {
@@ -809,24 +818,80 @@ const Admin: React.FC<AdminProps> = ({ onAddProperty, onUpdateLogo, onResetLogo,
            </div>
         )}
 
-        {/* ... OTHER TABS (Agents, Leads, Settings) remain roughly same structure ... */}
         {activeTab === 'agents' && (
-           <div className="bg-white p-8 rounded shadow-sm">
-               {/* Agents list code */}
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {agents.map(agent => (
-                      <div key={agent.id} className="border p-4 rounded flex items-center justify-between bg-white shadow-sm group">
-                          <div className="flex items-center gap-4">
-                              <img src={agent.photoUrl} className="w-16 h-16 rounded-full object-cover border border-gray-200" alt={agent.name}/>
-                              <div><p className="font-bold text-slate-900">{agent.name}</p></div>
-                          </div>
-                          {(currentAgent.role === 'admin' || currentAgent.id === agent.id) && (
-                              <button onClick={() => handleEditAgent(agent)} className="text-gray-400 hover:text-orange-500 p-2"><Pencil size={16} /></button>
-                          )}
+          <div className="bg-white p-8 rounded shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-bold">{editingAgentId ? (editingAgentId === currentAgent.id ? 'Edit My Profile' : 'Edit Team Member') : 'Add Team Member'}</h2>
+            </div>
+
+            <form onSubmit={handleAgentSubmit} className="mb-10 bg-slate-50 p-6 rounded border border-slate-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Name</label>
+                    <input type="text" required value={agentForm.name} onChange={e => setAgentForm({...agentForm, name: e.target.value})} className="w-full border p-2 rounded"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
+                    <input type="email" required value={agentForm.email} onChange={e => setAgentForm({...agentForm, email: e.target.value})} className="w-full border p-2 rounded"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone</label>
+                    <input type="text" value={agentForm.phone} onChange={e => setAgentForm({...agentForm, phone: e.target.value})} className="w-full border p-2 rounded"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp (No +)</label>
+                    <input type="text" value={agentForm.whatsapp} onChange={e => setAgentForm({...agentForm, whatsapp: e.target.value})} className="w-full border p-2 rounded"/>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
+                    <div className="relative">
+                        <input type="text" value={agentForm.password} onChange={e => setAgentForm({...agentForm, password: e.target.value})} className="w-full border p-2 rounded font-mono text-sm"/>
+                        <Lock size={14} className="absolute right-3 top-3 text-gray-400"/>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">Visible for editing. Ensure security.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label>
+                    <select value={agentForm.role} onChange={e => setAgentForm({...agentForm, role: e.target.value as any})} disabled={currentAgent.role !== 'admin'} className="w-full border p-2 rounded">
+                        <option value="agent">Agent</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                  </div>
+              </div>
+
+              <div className="mb-4">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Profile Photo</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={agentPhotoPreview} onChange={e => setAgentPhotoPreview(e.target.value)} className="flex-grow border p-2 rounded" placeholder="https://..."/>
+                    <label className="bg-gray-200 px-3 py-2 rounded cursor-pointer hover:bg-gray-300"><Upload size={16}/><input type="file" className="hidden" onChange={(e)=>{if(e.target.files?.[0]) { const r = new FileReader(); r.onload=()=>setAgentPhotoPreview(r.result as string); r.readAsDataURL(e.target.files[0]); }}}/></label>
+                  </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                  {editingAgentId && <button type="button" onClick={cancelEditAgent} className="px-4 py-2 text-gray-600 hover:text-gray-900">Cancel</button>}
+                  <button type="submit" disabled={isSubmitting} className="bg-slate-900 text-white px-6 py-2 rounded font-bold uppercase tracking-wider text-xs hover:bg-gold-500">
+                    {isSubmitting ? 'Saving...' : (editingAgentId ? 'Update Profile' : 'Create Agent')}
+                  </button>
+              </div>
+            </form>
+
+            <h3 className="text-lg font-bold mb-4">Team Members</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {agents.map(agent => (
+                  <div key={agent.id} className="border p-4 rounded flex items-center justify-between bg-white shadow-sm group">
+                      <div className="flex items-center gap-4">
+                          <img src={agent.photoUrl} className="w-16 h-16 rounded-full object-cover border border-gray-200" alt={agent.name}/>
+                          <div><p className="font-bold text-slate-900">{agent.name}</p></div>
                       </div>
-                  ))}
-               </div>
-           </div>
+                      {(currentAgent.role === 'admin' || currentAgent.id === agent.id) && (
+                          <button onClick={() => handleEditAgent(agent)} className="text-gray-400 hover:text-orange-500 p-2"><Pencil size={16} /></button>
+                      )}
+                  </div>
+              ))}
+            </div>
+          </div>
         )}
 
       </div>
