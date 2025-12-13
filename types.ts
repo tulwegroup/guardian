@@ -42,6 +42,16 @@ export interface BlogPost {
   createdAt: string;
 }
 
+export interface Job {
+  id: string;
+  title: string;
+  department: string;
+  location: string;
+  type: string;
+  description: string;
+  createdAt: string;
+}
+
 export interface Property {
   id: string;
   // Basic Info
