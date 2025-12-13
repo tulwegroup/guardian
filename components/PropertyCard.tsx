@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Bed, Bath, Square, MapPin, Download, Info, Phone, Mail, MessageCircle } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Bed, Bath, Square, MapPin, Download, Info, Phone, Mail, MessageCircle, Pencil } from 'lucide-react';
 import { Property, Agent } from '../types';
 import { getSupabase } from '../lib/supabase';
 import { Link } from 'react-router-dom';
@@ -14,6 +15,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+      const session = localStorage.getItem('guardian_admin_session');
+      if (session) setIsAdmin(true);
+  }, []);
 
   const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +76,13 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
     <>
     <div className="group bg-white rounded-md overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-200 flex flex-col h-full relative font-sans">
       
+      {/* Admin Quick Edit */}
+      {isAdmin && (
+          <Link to={`/admin?editPropId=${property.id}`} className="absolute top-3 left-3 z-30 bg-orange-500 text-white p-2 rounded shadow-lg hover:bg-orange-600 transition-colors" title="Edit this property">
+              <Pencil size={16}/>
+          </Link>
+      )}
+
       {/* IMAGE CONTAINER - Clickable */}
       <Link to={`/property/${property.id}`} className="relative overflow-hidden h-64 block">
         <img src={property.imageUrl} alt={property.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>
