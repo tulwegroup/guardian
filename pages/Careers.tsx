@@ -1,39 +1,25 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getSupabase } from '../lib/supabase';
 import { Briefcase, MapPin, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
-
-const OPENINGS = [
-  {
-    id: 1,
-    title: "Senior Real Estate Consultant",
-    department: "Sales",
-    location: "Dubai, UAE",
-    type: "Full-time",
-    description: "We are looking for experienced consultants with a proven track record in Dubai real estate market."
-  },
-  {
-    id: 2,
-    title: "Off-Plan Specialist",
-    department: "Sales",
-    location: "Dubai, UAE",
-    type: "Full-time",
-    description: "Specialist needed for our growing off-plan division. Deep knowledge of Emaar, Sobha, and Damac projects required."
-  },
-  {
-    id: 3,
-    title: "Marketing Manager",
-    department: "Marketing",
-    location: "Dubai, UAE",
-    type: "Full-time",
-    description: "Lead our digital presence and lead generation campaigns."
-  }
-];
+import { Job } from '../types';
 
 const Careers: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', position: '', linkedin: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [openings, setOpenings] = useState<Job[]>([]);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+        const supabase = getSupabase();
+        if (supabase) {
+            const { data } = await supabase.from('jobs').select('*');
+            if (data) setOpenings(data as Job[]);
+        }
+    };
+    fetchJobs();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +43,6 @@ const Careers: React.FC = () => {
         alert("Error submitting application. Please try again.");
       }
     } else {
-      // Fallback for no DB
       setTimeout(() => setSuccess(true), 1000);
     }
     setIsSubmitting(false);
@@ -81,21 +66,25 @@ const Careers: React.FC = () => {
           {/* Openings List */}
           <div>
             <h2 className="text-3xl font-serif text-slate-900 mb-8">Current Openings</h2>
-            <div className="space-y-6">
-              {OPENINGS.map((job) => (
-                <div key={job.id} className="bg-white p-6 rounded shadow-sm border border-gray-100 hover:border-gold-500 transition-colors group cursor-pointer">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-gold-600 transition-colors">{job.title}</h3>
-                    <span className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-medium">{job.department}</span>
-                  </div>
-                  <p className="text-gray-500 mb-4 text-sm">{job.description}</p>
-                  <div className="flex gap-4 text-xs text-gray-400">
-                    <div className="flex items-center gap-1"><MapPin size={12} /> {job.location}</div>
-                    <div className="flex items-center gap-1"><Clock size={12} /> {job.type}</div>
-                  </div>
+            {openings.length === 0 ? (
+                <div className="bg-white p-6 rounded border border-gray-200 text-gray-500 italic">No current openings. Please check back later.</div>
+            ) : (
+                <div className="space-y-6">
+                {openings.map((job) => (
+                    <div key={job.id} className="bg-white p-6 rounded shadow-sm border border-gray-100 hover:border-gold-500 transition-colors group cursor-pointer">
+                    <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-xl font-bold text-slate-900 group-hover:text-gold-600 transition-colors">{job.title}</h3>
+                        <span className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-medium">{job.department}</span>
+                    </div>
+                    <p className="text-gray-500 mb-4 text-sm">{job.description}</p>
+                    <div className="flex gap-4 text-xs text-gray-400">
+                        <div className="flex items-center gap-1"><MapPin size={12} /> {job.location}</div>
+                        <div className="flex items-center gap-1"><Clock size={12} /> {job.type}</div>
+                    </div>
+                    </div>
+                ))}
                 </div>
-              ))}
-            </div>
+            )}
 
             <div className="mt-12 bg-gold-50 p-8 rounded border border-gold-100">
               <h3 className="text-xl font-serif font-bold text-slate-900 mb-4">Why Join Us?</h3>
@@ -161,4 +150,3 @@ const Careers: React.FC = () => {
 };
 
 export default Careers;
-    
