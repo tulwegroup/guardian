@@ -1,4 +1,5 @@
 
+
 import { NavItem, Property, Agent, Community } from './types';
 
 export const DEFAULT_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'%3E%3Cdefs%3E%3ClinearGradient id='gold-grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23F9E076'/%3E%3Cstop offset='50%25' stop-color='%23D4AF37'/%3E%3Cstop offset='100%25' stop-color='%23B08D22'/%3E%3C/linearGradient%3E%3ClinearGradient id='silver-grad' x1='100%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23FFFFFF'/%3E%3Cstop offset='50%25' stop-color='%23C0C0C0'/%3E%3Cstop offset='100%25' stop-color='%23808080'/%3E%3C/linearGradient%3E%3Cfilter id='dropShadow'%3E%3CfeGaussianBlur in='SourceAlpha' stdDeviation='3'/%3E%3CfeOffset dx='1' dy='1' result='offsetblur'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.3'/%3E%3C/feComponentTransfer%3E%3CfeMerge%3E%3CfeMergeNode/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23dropShadow)'%3E%3Cpath d='M100,20 C140,20 160,60 140,90 C120,120 80,120 60,90 C40,60 60,20 100,20 Z' fill='url(%23silver-grad)' transform='translate(0, -10)' /%3E%3Cpath d='M60,90 C40,120 40,180 80,210 C90,218 100,220 110,215 C90,200 70,160 80,120 C85,100 100,80 120,70 C100,60 70,70 60,90 Z' fill='url(%23silver-grad)' /%3E%3Cpath d='M130,110 C150,110 165,130 165,150 C165,170 150,190 130,190 C110,190 95,170 95,150 C95,130 110,110 130,110 Z' fill='url(%23gold-grad)' /%3E%3Cpath d='M130,190 C110,190 80,230 100,240 C120,250 160,230 180,180 C190,140 170,100 150,90 C160,110 160,160 130,190 Z' fill='url(%23gold-grad)' /%3E%3C/g%3E%3C/svg%3E";
@@ -256,6 +257,16 @@ export const INITIAL_AGENTS: Agent[] = [
     id: 'master-admin',
     name: 'Guardian Admin',
     email: 'hello@guardianhousing.ae',
+    phone: '+971 50 580 4669',
+    whatsapp: '971505804669',
+    photoUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop',
+    role: 'admin',
+    password: 'guardian2024'
+  },
+  {
+    id: 'admin-arslan',
+    name: 'Arslan',
+    email: 'Arslan@guardianhousing.ae',
     phone: '+971 50 580 4669',
     whatsapp: '971505804669',
     photoUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop',
